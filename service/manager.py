@@ -5,7 +5,7 @@ from models.queues import RequestUpdateMessage, RequestUpdateOperation
 
 
 class PingManager:
-    __requests: Dict[str, List[Request]] = {}
+    __requests: Dict[str, Request] = {}
     __update_queue: Optional[asyncio.Queue[RequestUpdateMessage]] = None
 
     @staticmethod
@@ -19,9 +19,9 @@ class PingManager:
         await request.start()
 
         if PingManager.__requests.get(request.address) is None:
-            PingManager.__requests[request.address] = [request]
+            PingManager.__requests[request.address] = request
         else:
-            PingManager.__requests[request.address].append(request)
+            raise KeyError(f"Request for address {request.address} is already defined in the Ping Manager.")
 
     @staticmethod
     async def add_request_list(list: List[Request]):
@@ -29,16 +29,13 @@ class PingManager:
             await PingManager.add_request(request)
 
     @staticmethod
-    async def remove_requests_by_address(address: str) -> None:
+    async def remove_request_by_address(address: str) -> None:
 
-        requests_list = PingManager.__requests.get(address)
-        if requests_list is None:
+        request = PingManager.__requests.get(address)
+        if request is None:
             raise KeyError(f"The address {address} is not active in the Ping Manager.")
 
-        requests = [request for request in requests_list if request.address == address]
-
-        for request in requests:
-            await request.stop()
+        await request.stop()
 
         if PingManager.__update_queue is None:
             raise RuntimeError(f"Update Queue is not defined in the Ping Manager")

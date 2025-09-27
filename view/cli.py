@@ -1,10 +1,7 @@
 import asyncio
-import time
-import random
 from typing import Optional, Dict, Callable
 from rich.live import Live
 from rich.table import Table
-from rich.console import Console
 from models.request import ViewRequestMetrics
 from models.queues import RequestUpdateMessage, RequestUpdateOperation
 
@@ -13,7 +10,6 @@ HandlerMethod = Callable[[RequestUpdateMessage], None]
 
 class CLIView:
 
-    __console = Console()
     __request_metrics: Dict[str, ViewRequestMetrics] = {}
     __update_queue: Optional[asyncio.Queue[RequestUpdateMessage]] = None
     __handler_methods: Dict[RequestUpdateOperation, HandlerMethod] = {}
@@ -31,6 +27,7 @@ class CLIView:
     def __render_table_header() -> Table:
         table = Table(show_header=True, header_style="bold green")
         table.add_column("Host")
+        table.add_column("Callers")
         table.add_column("Sent")
         table.add_column("OK")
         table.add_column("NOK")
@@ -49,6 +46,7 @@ class CLIView:
         for address, metrics in CLIView.__request_metrics.items():
             table.add_row(
                 address,
+                metrics.callers_number,
                 metrics.total_number,
                 metrics.sucess_number,
                 metrics.error_number,

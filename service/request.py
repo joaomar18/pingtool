@@ -9,14 +9,21 @@ AsyncCallback = Callable[[str, RequestMetrics], Awaitable[None]]
 
 class Request:
     def __init__(
-        self, address: str, timeout: int = 10, request_family=None, polling_interval: float = 1, update_callback: AsyncCallback | None = None
+        self,
+        address: str,
+        timeout: int = 10,
+        request_family=None,
+        polling_interval: float = 1,
+        callers_number: int = 1,
+        update_callback: AsyncCallback | None = None,
     ):
         self.address = address
         self.timeout = timeout
         self.request_family = request_family
         self.polling_interval = polling_interval
+        self.callers_number = callers_number
         self.update_callback = update_callback
-        self.metrics = RequestMetrics()
+        self.metrics = RequestMetrics(callers_number=self.callers_number)
 
         self.average_time_sum_ms = 0.0
 
@@ -26,7 +33,7 @@ class Request:
 
         if self.task is not None:
             raise RuntimeWarning(f"The request with address {self.address} is already started")
-        self.task = asyncio.create_task(self.__manage_request())
+        self.task = asyncio.create_task(self.__manage_requests())
 
     async def stop(self) -> None:
 
@@ -46,13 +53,14 @@ class Request:
     def set_update_callback(self, callback: AsyncCallback) -> None:
         self.update_callback = callback
 
-    async def __manage_request(self) -> None:
+    async def __manage_requests(self) -> None:
 
         initial_time, end_time, polling_interval = 0.0, 0.0, 0.0
 
         while True:
             initial_time = time.time()
-            await self.__run_request()
+            tasks = [self.__run_request() for i in range(self.callers_number)]
+            await asyncio.gather(*tasks)
             end_time = time.time()
             polling_interval = self.polling_interval - (end_time - initial_time)
             if polling_interval > 0.0:

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ViewRequestMetrics:
+    callers_number: str
     total_number: str
     sucess_number: str
     error_number: str
@@ -16,6 +17,7 @@ class ViewRequestMetrics:
 
 @dataclass
 class RequestMetrics:
+    callers_number: int
     total_number: int = 0
     sucess_number: int = 0
     error_number: int = 0
@@ -43,6 +45,7 @@ class RequestMetrics:
         last_time_ms = round(self.last_time_ms, decimal_places) if self.last_time_ms is not None else None
 
         return RequestMetrics(
+            callers_number=self.callers_number,
             total_number=self.total_number,
             sucess_number=self.sucess_number,
             error_number=self.error_number,
@@ -58,6 +61,7 @@ class RequestMetrics:
         null_value = "-" * number_of_chars_for_null
 
         return ViewRequestMetrics(
+            callers_number=str(self.callers_number),
             total_number=str(self.total_number),
             sucess_number=str(self.sucess_number),
             error_number=str(self.error_number),

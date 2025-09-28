@@ -15,6 +15,7 @@ class Request:
         request_family=None,
         polling_interval: float = 1,
         callers_number: int = 1,
+        histogram_max_list_number: int = 16,
         update_callback: AsyncCallback | None = None,
     ):
         self.address = address
@@ -22,8 +23,9 @@ class Request:
         self.request_family = request_family
         self.polling_interval = polling_interval
         self.callers_number = callers_number
+        self.histogram_max_list_number = histogram_max_list_number
         self.update_callback = update_callback
-        self.metrics = RequestMetrics(callers_number=self.callers_number)
+        self.metrics = RequestMetrics(callers_number=self.callers_number, histogram_values=([None] * self.histogram_max_list_number))
 
         self.average_time_sum_ms = 0.0
 
@@ -85,6 +87,12 @@ class Request:
         if self.update_callback:
             await self.update_callback(self.address, self.get_metrics())
 
+    def __update_histogram_values(self, delay: float) -> None:
+
+        for i in range(self.histogram_max_list_number - 2, -1, -1):
+            self.metrics.histogram_values[i + 1] = self.metrics.histogram_values[i]
+        self.metrics.histogram_values[0] = delay
+
     def __update_metrics(self, delay: Optional[float]) -> None:
 
         self.metrics.total_number += 1
@@ -112,6 +120,8 @@ class Request:
             else:
                 if self.metrics.max_time_ms < delay:
                     self.metrics.max_time_ms = delay
+
+            self.__update_histogram_values(delay)
 
             self.metrics.last_time_ms = delay
         else:

@@ -36,8 +36,8 @@ async def main() -> None:
     PingManager.set_update_queue(data.queues.request_update_queue)
     CLIView.set_update_queue(data.queues.request_update_queue)
 
-    google_ping = Request(address="www.google.pt", polling_interval=0.1, callers_number=10)
-    home_ping = Request(address="192.168.0.20", polling_interval=0.01)
+    google_ping = Request(address="www.google.pt", polling_interval=0.01, callers_number=10)
+    home_ping = Request(address="192.168.0.20", polling_interval=1)
     await PingManager.add_request_list([google_ping, home_ping])
     CLIView.init()
 

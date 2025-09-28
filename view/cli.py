@@ -2,15 +2,18 @@ import asyncio
 from typing import Optional, Dict, Callable
 from rich.live import Live
 from rich.table import Table
-from models.request import ViewRequestMetrics
+from models.request import RequestMetrics
 from models.queues import RequestUpdateMessage, RequestUpdateOperation
+import util.view as util
 
 HandlerMethod = Callable[[RequestUpdateMessage], None]
 
 
 class CLIView:
 
-    __request_metrics: Dict[str, ViewRequestMetrics] = {}
+    __BLOCKS = "▁▂▃▄▅▆▇█"
+    __BLOCKS_LEVELS = 8
+    __request_metrics: Dict[str, RequestMetrics] = {}
     __update_queue: Optional[asyncio.Queue[RequestUpdateMessage]] = None
     __handler_methods: Dict[RequestUpdateOperation, HandlerMethod] = {}
 
@@ -36,25 +39,56 @@ class CLIView:
         table.add_column("Last (ms)")
         table.add_column("Min. (ms)")
         table.add_column("Max. (ms)")
+        table.add_column("Trend", no_wrap=True)
 
         return table
+
+    @staticmethod
+    def __render_histogram(metrics: RequestMetrics) -> str:
+
+        trend: str = ""
+        in_min_value = metrics.min_time_ms
+        in_max_value = metrics.max_time_ms
+        out_min_value = 0
+        out_max_value = CLIView.__BLOCKS_LEVELS - 1
+
+        if in_min_value is None or in_max_value is None or in_min_value == in_max_value:
+            return trend
+
+        for value in metrics.histogram_values:
+            if value is None:
+                trend += " "
+                continue
+
+            trend_value = util.scale_value(x=value, in_min=in_min_value, in_max=in_max_value, out_min=out_min_value, out_max=out_max_value)
+            trend_value = round(trend_value)
+            if trend_value < out_min_value:
+                trend_value = out_min_value
+            elif trend_value > out_max_value:
+                trend_value = out_max_value
+
+            trend += str(CLIView.__BLOCKS[trend_value])
+
+        return trend
 
     @staticmethod
     def __render_table() -> Table:
 
         table = CLIView.__render_table_header()
         for address, metrics in CLIView.__request_metrics.items():
+            view_metrics = metrics.convert_to_view()
             table.add_row(
                 address,
-                metrics.callers_number,
-                metrics.total_number,
-                metrics.sucess_number,
-                metrics.error_number,
-                metrics.loss_percentage,
-                metrics.average_time_ms,
-                metrics.last_time_ms,
-                metrics.min_time_ms,
-                metrics.max_time_ms,
+                view_metrics.callers_number,
+                view_metrics.total_number,
+                view_metrics.sucess_number,
+                view_metrics.error_number,
+                view_metrics.loss_percentage,
+                view_metrics.average_time_ms,
+                view_metrics.last_time_ms,
+                view_metrics.min_time_ms,
+                view_metrics.max_time_ms,
+                CLIView.__render_histogram(metrics),
             )
 
         return table
@@ -88,7 +122,7 @@ class CLIView:
         if message.metrics is None:
             raise KeyError(f"Received message of address {message.address} with update operation but without metrics.")
 
-        CLIView.__request_metrics[message.address] = message.metrics.convert_to_view()
+        CLIView.__request_metrics[message.address] = message.metrics
 
     @staticmethod
     def __delete_request_entry(message: RequestUpdateMessage) -> None:

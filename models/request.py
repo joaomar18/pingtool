@@ -1,6 +1,6 @@
 from typing import Optional, List
 from dataclasses import dataclass
-
+from collections import deque
 
 @dataclass
 class ViewRequestMetrics:
@@ -13,13 +13,13 @@ class ViewRequestMetrics:
     min_time_ms: str
     max_time_ms: str
     last_time_ms: str
-    histogram_values: List[str]
+    histogram_values: deque[str]
 
 
 @dataclass
 class RequestMetrics:
     callers_number: int
-    histogram_values: List[Optional[float]]
+    histogram_values: deque[Optional[float]]
     total_number: int = 0
     sucess_number: int = 0
     error_number: int = 0
@@ -45,7 +45,14 @@ class RequestMetrics:
         min_time_ms = round(self.min_time_ms, decimal_places) if self.min_time_ms is not None else None
         max_time_ms = round(self.max_time_ms, decimal_places) if self.max_time_ms is not None else None
         last_time_ms = round(self.last_time_ms, decimal_places) if self.last_time_ms is not None else None
-        histogram_values = [round(value, decimal_places) if value is not None else None for value in self.histogram_values]
+        
+        histogram_copy = self.histogram_values.copy()
+        histogram_values: deque[Optional[float]] = deque(maxlen=self.histogram_values.maxlen)
+        
+        while len(histogram_copy) > 0:
+            value = histogram_copy.popleft()
+            value = round(value, decimal_places) if value is not None else None
+            histogram_values.append(value)
 
         return RequestMetrics(
             callers_number=self.callers_number,
@@ -63,6 +70,14 @@ class RequestMetrics:
     def convert_to_view(self, number_of_chars_for_null: int = 3) -> ViewRequestMetrics:
 
         null_value = "-" * number_of_chars_for_null
+        
+        histogram_copy = self.histogram_values.copy()
+        histogram_values: deque[str] = deque(maxlen=self.histogram_values.maxlen)
+        
+        while len(histogram_copy) > 0:
+            value = histogram_copy.popleft()
+            value = str(value) if value is not None else null_value
+            histogram_values.append(value)
 
         return ViewRequestMetrics(
             callers_number=str(self.callers_number),
@@ -74,5 +89,5 @@ class RequestMetrics:
             min_time_ms=str(self.min_time_ms) if self.min_time_ms is not None else null_value,
             max_time_ms=str(self.max_time_ms) if self.max_time_ms is not None else null_value,
             last_time_ms=str(self.last_time_ms) if self.last_time_ms is not None else null_value,
-            histogram_values=[str(value) if value is not None else null_value for value in self.histogram_values],
+            histogram_values=histogram_values,
         )

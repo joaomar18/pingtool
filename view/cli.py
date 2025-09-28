@@ -55,7 +55,10 @@ class CLIView:
         if in_min_value is None or in_max_value is None or in_min_value == in_max_value:
             return trend
 
-        for value in metrics.histogram_values:
+        histogram_copy = metrics.histogram_values.copy()
+
+        while len(histogram_copy) > 0:
+            value = histogram_copy.popleft()
             if value is None:
                 trend += " "
                 continue

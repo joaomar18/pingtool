@@ -3,6 +3,7 @@ import asyncio
 from typing import Optional, Callable, Awaitable
 import ping3
 from models.request import RequestMetrics
+from collections import deque
 
 AsyncCallback = Callable[[str, RequestMetrics], Awaitable[None]]
 
@@ -25,7 +26,10 @@ class Request:
         self.callers_number = callers_number
         self.histogram_max_list_number = histogram_max_list_number
         self.update_callback = update_callback
-        self.metrics = RequestMetrics(callers_number=self.callers_number, histogram_values=([None] * self.histogram_max_list_number))
+        
+        histogram = deque(maxlen=self.histogram_max_list_number)
+        histogram.extend([None] * self.histogram_max_list_number)
+        self.metrics = RequestMetrics(callers_number=self.callers_number, histogram_values=histogram)
 
         self.average_time_sum_ms = 0.0
 
@@ -88,10 +92,12 @@ class Request:
             await self.update_callback(self.address, self.get_metrics())
 
     def __update_histogram_values(self, delay: float) -> None:
-
-        for i in range(self.histogram_max_list_number - 2, -1, -1):
-            self.metrics.histogram_values[i + 1] = self.metrics.histogram_values[i]
-        self.metrics.histogram_values[0] = delay
+        
+        if len(self.metrics.histogram_values) != self.histogram_max_list_number:
+            raise ValueError(f"Missing histogram values for request with address: {self.address}")
+        
+        self.metrics.histogram_values.pop() 
+        self.metrics.histogram_values.appendleft(delay)
 
     def __update_metrics(self, delay: Optional[float]) -> None:
 
